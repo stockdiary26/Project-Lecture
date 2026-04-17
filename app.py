@@ -1,6 +1,7 @@
 import streamlit as st
 from lib.auth import check_password
 from lib import db
+from lib.analysis import calc_class_average
 
 st.set_page_config(
     page_title="국어 성적 관리",
@@ -33,21 +34,9 @@ if exams:
 
     scores = db.get_scores_by_exam(latest_exam["id"])
     if scores:
-        avg = sum(s["total_score"] for s in scores) / len(scores)
+        avg = calc_class_average(scores)
         st.metric("평균 점수", f"{avg:.1f}점")
-
-        consultations = []
-        for s in scores:
-            cons = db.get_consultations_by_student(s["student_id"])
-            exam_cons = [c for c in cons if c.get("exam_id") == latest_exam["id"]]
-            if exam_cons:
-                consultations.append(s["student_id"])
-
-        remaining = len(scores) - len(consultations)
-        if remaining > 0:
-            st.warning(f"💬 상담문 미작성 학생: {remaining}명")
-        else:
-            st.success("✅ 모든 학생 상담문 작성 완료")
+        st.info(f"📊 점수 입력 완료 학생: {len(scores)}명")
     else:
         st.info("아직 점수가 입력되지 않았습니다.")
 else:

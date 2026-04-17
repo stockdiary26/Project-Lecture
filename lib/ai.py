@@ -39,7 +39,7 @@ def build_student_context(student_id: int, exam_id: int) -> str:
     all_students = db.get_students()
     student = next((s for s in all_students if s["id"] == student_id), None)
     student_name = student["name"] if student else "알 수 없음"
-    school_name = student.get("school_name") or "학교 미지정" if student else "알 수 없음"
+    school_name = (student.get("school_name") or "학교 미지정") if student else "알 수 없음"
 
     # --- All scores for this student ---
     scores = db.get_scores_by_student(student_id)

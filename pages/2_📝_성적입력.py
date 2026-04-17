@@ -198,3 +198,50 @@ if st.button("성적 저장", type="primary"):
 
     if success_count > 0:
         st.success(f"{success_count}명의 성적이 저장되었습니다.")
+
+# ── 영역별 점수 입력 ─────────────────────────
+st.divider()
+st.subheader("📊 영역별 점수 입력 (선택)")
+st.caption("영역별 점수는 선택사항입니다. 입력하면 영역별 분석이 가능해집니다.")
+
+selected_exam = next((e for e in exams if e["id"] == selected_exam_id), None)
+
+categories = db.get_categories()
+if categories and selected_exam:
+    cat_student = st.selectbox(
+        "학생 선택 (영역별 점수)", students,
+        format_func=lambda s: f"{s['name']} ({s.get('school_name') or ''})",
+        key="cat_student_select"
+    )
+
+    # Get existing score for this student+exam
+    existing = db.get_scores_by_exam(selected_exam["id"])
+    student_score = next((s for s in existing if s["student_id"] == cat_student["id"]), None)
+
+    if student_score:
+        existing_cat_scores = db.get_category_scores(student_score["id"])
+        cat_score_map = {}
+        for cs in existing_cat_scores:
+            cat_name = cs.get("categories", {}).get("name", "")
+            cat_score_map[cat_name] = cs["score"]
+
+        with st.form("category_scores_form"):
+            cat_values = {}
+            cols = st.columns(len(categories))
+            for i, cat in enumerate(categories):
+                with cols[i]:
+                    cat_values[cat["id"]] = st.number_input(
+                        cat["name"],
+                        min_value=0,
+                        value=cat_score_map.get(cat["name"], 0),
+                        key=f"cat_{cat['id']}"
+                    )
+
+            if st.form_submit_button("영역별 점수 저장"):
+                for cat_id, score in cat_values.items():
+                    if score > 0:
+                        db.upsert_category_score(student_score["id"], cat_id, score)
+                st.success("영역별 점수 저장 완료!")
+                st.rerun()
+    else:
+        st.info("이 학생의 총점을 먼저 입력해주세요.")

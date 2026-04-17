@@ -11,13 +11,10 @@ from supabase import create_client, Client
 # Connection
 # ---------------------------------------------------------------------------
 
+@st.cache_resource
 def get_client() -> Client:
-    """Return a cached Supabase client stored in st.session_state."""
-    if "supabase_client" not in st.session_state:
-        url: str = st.secrets["SUPABASE_URL"]
-        key: str = st.secrets["SUPABASE_KEY"]
-        st.session_state["supabase_client"] = create_client(url, key)
-    return st.session_state["supabase_client"]
+    """Return a cached Supabase client (shared across sessions)."""
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
 # ---------------------------------------------------------------------------

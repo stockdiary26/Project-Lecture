@@ -21,7 +21,7 @@ if not students:
 
 selected_student = st.selectbox(
     "학생", students,
-    format_func=lambda s: f"{s['name']} ({s['school_name']})"
+    format_func=lambda s: f"{s['name']} ({s.get('school_name') or ''})"
 )
 
 st.subheader("✏️ 새 메모")
