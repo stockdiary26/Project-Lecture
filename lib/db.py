@@ -14,8 +14,8 @@ from supabase import create_client, Client
 def get_client() -> Client:
     """Return a cached Supabase client stored in st.session_state."""
     if "supabase_client" not in st.session_state:
-        url: str = st.secrets["supabase"]["url"]
-        key: str = st.secrets["supabase"]["key"]
+        url: str = st.secrets["SUPABASE_URL"]
+        key: str = st.secrets["SUPABASE_KEY"]
         st.session_state["supabase_client"] = create_client(url, key)
     return st.session_state["supabase_client"]
 
