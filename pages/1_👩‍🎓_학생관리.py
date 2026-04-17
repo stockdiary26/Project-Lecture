@@ -1,0 +1,201 @@
+"""
+pages/1_👩‍🎓_학생관리.py — 반 관리 및 학생 등록/조회 페이지
+"""
+
+import io
+import pandas as pd
+import streamlit as st
+from lib.auth import check_password
+from lib import db
+
+if not check_password():
+    st.stop()
+
+st.title("👩‍🎓 학생 관리")
+
+# ---------------------------------------------------------------------------
+# 반(Class) 관리
+# ---------------------------------------------------------------------------
+
+st.subheader("반 관리")
+
+classes = db.get_classes()
+
+with st.expander("반 목록 및 관리", expanded=True):
+    if classes:
+        for cls in classes:
+            col_name, col_del = st.columns([5, 1])
+            with col_name:
+                st.write(cls["name"])
+            with col_del:
+                if st.button("삭제", key=f"del_class_{cls['id']}"):
+                    db.delete_class(cls["id"])
+                    st.warning(f"'{cls['name']}' 반이 삭제되었습니다.")
+                    st.rerun()
+    else:
+        st.info("등록된 반이 없습니다.")
+
+    st.write("**새 반 추가**")
+    with st.form("add_class_form", clear_on_submit=True):
+        new_class_name = st.text_input("반 이름", placeholder="예: 고2 수요반")
+        class_submitted = st.form_submit_button("반 추가")
+
+    if class_submitted:
+        if new_class_name.strip():
+            db.create_class(new_class_name.strip())
+            st.success(f"'{new_class_name.strip()}' 반이 추가되었습니다.")
+            st.rerun()
+        else:
+            st.error("반 이름을 입력하세요.")
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# 학생 조회 (반별 / 학교별 토글)
+# ---------------------------------------------------------------------------
+
+st.subheader("학생 조회")
+
+view_mode = st.radio(
+    "보기 방식",
+    options=["반별 보기", "학교별 보기"],
+    horizontal=True,
+)
+
+if view_mode == "반별 보기":
+    classes = db.get_classes()  # refresh after possible add/delete above
+    if classes:
+        class_options = {cls["name"]: cls["id"] for cls in classes}
+        selected_class_name = st.selectbox("반 선택", options=list(class_options.keys()))
+        selected_class_id = class_options[selected_class_name]
+
+        students = db.get_students(class_id=selected_class_id)
+        if students:
+            df = pd.DataFrame(
+                [
+                    {
+                        "이름": s["name"],
+                        "학교명": s["school_name"],
+                        "반": s["classes"]["name"] if s.get("classes") else "",
+                    }
+                    for s in students
+                ]
+            )
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.info("이 반에 등록된 학생이 없습니다.")
+    else:
+        st.info("먼저 반을 추가하세요.")
+
+else:  # 학교별 보기
+    all_students = db.get_students_by_school()
+    if all_students:
+        # school_name 기준으로 그루핑
+        school_groups: dict[str, list] = {}
+        for s in all_students:
+            school = s.get("school_name") or "미지정"
+            school_groups.setdefault(school, []).append(s)
+
+        for school_name, stu_list in school_groups.items():
+            st.write(f"**{school_name}** ({len(stu_list)}명)")
+            df = pd.DataFrame(
+                [
+                    {
+                        "이름": s["name"],
+                        "반": s["classes"]["name"] if s.get("classes") else "",
+                    }
+                    for s in stu_list
+                ]
+            )
+            st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("등록된 학생이 없습니다.")
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# 학생 추가 (개별 입력 / CSV 업로드 탭)
+# ---------------------------------------------------------------------------
+
+st.subheader("학생 추가")
+
+tab_single, tab_csv = st.tabs(["개별 입력", "CSV 일괄 업로드"])
+
+# --- 개별 입력 ---
+with tab_single:
+    classes = db.get_classes()
+    if not classes:
+        st.warning("먼저 반을 추가하세요.")
+    else:
+        with st.form("add_student_form", clear_on_submit=True):
+            class_options_single = {cls["name"]: cls["id"] for cls in classes}
+            selected_for_add = st.selectbox(
+                "반 선택", options=list(class_options_single.keys())
+            )
+            student_name = st.text_input("학생 이름")
+            student_school = st.text_input("학교명")
+            student_submitted = st.form_submit_button("학생 추가")
+
+        if student_submitted:
+            if student_name.strip() and student_school.strip():
+                db.create_student(
+                    class_id=class_options_single[selected_for_add],
+                    name=student_name.strip(),
+                    school_name=student_school.strip(),
+                )
+                st.success(f"'{student_name.strip()}' 학생이 추가되었습니다.")
+                st.rerun()
+            else:
+                st.error("이름과 학교명을 모두 입력하세요.")
+
+# --- CSV 일괄 업로드 ---
+with tab_csv:
+    st.write("CSV 파일 형식: **이름,학교명** (헤더 포함)")
+    st.caption("예시:\n```\n이름,학교명\n홍길동,서울중학교\n김영희,부산고등학교\n```")
+
+    classes = db.get_classes()
+    if not classes:
+        st.warning("먼저 반을 추가하세요.")
+    else:
+        class_options_csv = {cls["name"]: cls["id"] for cls in classes}
+        csv_target_class = st.selectbox(
+            "업로드 대상 반",
+            options=list(class_options_csv.keys()),
+            key="csv_class_select",
+        )
+
+        uploaded_file = st.file_uploader("CSV 파일 선택", type=["csv"])
+
+        if uploaded_file is not None:
+            try:
+                df_csv = pd.read_csv(uploaded_file)
+
+                # 컬럼명 정규화
+                df_csv.columns = df_csv.columns.str.strip()
+
+                if "이름" not in df_csv.columns or "학교명" not in df_csv.columns:
+                    st.error("CSV 파일에 '이름' 과 '학교명' 컬럼이 필요합니다.")
+                else:
+                    df_preview = df_csv[["이름", "학교명"]].dropna()
+                    st.write(f"미리보기 ({len(df_preview)}명)")
+                    st.dataframe(df_preview, use_container_width=True, hide_index=True)
+
+                    if st.button("일괄 등록"):
+                        target_class_id = class_options_csv[csv_target_class]
+                        rows = [
+                            {
+                                "class_id": target_class_id,
+                                "name": str(row["이름"]).strip(),
+                                "school_name": str(row["학교명"]).strip(),
+                            }
+                            for _, row in df_preview.iterrows()
+                            if str(row["이름"]).strip()
+                        ]
+                        if rows:
+                            db.bulk_create_students(rows)
+                            st.success(f"{len(rows)}명의 학생이 등록되었습니다.")
+                            st.rerun()
+                        else:
+                            st.error("등록할 유효한 학생 데이터가 없습니다.")
+            except Exception as e:
+                st.error(f"CSV 파일을 읽는 중 오류가 발생했습니다: {e}")
