@@ -234,7 +234,7 @@ if categories and selected_exam:
                         cat["name"],
                         min_value=0,
                         value=cat_score_map.get(cat["name"], 0),
-                        key=f"cat_{cat['id']}"
+                        key=f"cat_{cat_student['id']}_{cat['id']}"
                     )
 
             if st.form_submit_button("영역별 점수 저장"):
