@@ -102,8 +102,12 @@ sorted_scores = sorted(all_scores, key=lambda s: s["exams"]["exam_date"])
 
 st.subheader("성적 추이")
 
-exam_dates = [s["exams"]["exam_date"] for s in sorted_scores]
-exam_names = [s["exams"]["name"] for s in sorted_scores]
+# x축: 같은 날짜에 여러 시험이 있어도 분리되도록 '이름 (유형, 날짜)' 조합 사용.
+# sorted_scores는 이미 exam_date 오름차순이라 x 순서는 시간순과 일치한다.
+exam_labels = [
+    f"{s['exams']['name']} ({s['exams'].get('exam_type', '')}, {s['exams']['exam_date']})"
+    for s in sorted_scores
+]
 total_scores = [s["total_score"] for s in sorted_scores]
 grades = [s.get("grade") for s in sorted_scores]
 
@@ -114,7 +118,7 @@ fig = go.Figure()
 # 총점 라인
 fig.add_trace(
     go.Scatter(
-        x=exam_dates,
+        x=exam_labels,
         y=total_scores,
         mode="lines+markers+text",
         name="총점",
@@ -130,7 +134,7 @@ if has_grades:
     grade_values = [g if g is not None else None for g in grades]
     fig.add_trace(
         go.Scatter(
-            x=exam_dates,
+            x=exam_labels,
             y=grade_values,
             mode="lines+markers+text",
             name="등급",
@@ -155,7 +159,7 @@ if has_grades:
     )
 
 fig.update_layout(
-    xaxis_title="시험 날짜",
+    xaxis=dict(title="시험", type="category"),
     yaxis=dict(title="총점", range=[0, 105]),
     hovermode="x unified",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
