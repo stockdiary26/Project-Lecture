@@ -380,6 +380,17 @@ def create_memo(student_id: int, content: str) -> dict:
     return response.data[0]
 
 
+def update_memo(memo_id: int, content: str) -> dict:
+    client = get_client()
+    response = (
+        client.table("memos")
+        .update({"content": content})
+        .eq("id", memo_id)
+        .execute()
+    )
+    return response.data[0]
+
+
 def delete_memo(memo_id: int) -> None:
     client = get_client()
     client.table("memos").delete().eq("id", memo_id).execute()
