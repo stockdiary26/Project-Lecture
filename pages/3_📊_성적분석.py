@@ -30,10 +30,17 @@ st.title("📊 성적 분석")
 # 학생 선택 (반별 / 학교별 토글)
 # ---------------------------------------------------------------------------
 
+# 다른 페이지에서 학생을 클릭해 넘어온 경우, 전체 학생 목록이 보이는
+# '학교별' 뷰로 전환해 preselect 학생을 확실히 찾아낼 수 있게 한다.
+preselect_student_id = st.session_state.pop("analysis_preselect_student_id", None)
+if preselect_student_id is not None:
+    st.session_state["analysis_view_mode"] = "학교별"
+
 view_mode = st.radio(
     "학생 선택 방식",
     options=["반별", "학교별"],
     horizontal=True,
+    key="analysis_view_mode",
 )
 
 if view_mode == "반별":
@@ -57,7 +64,21 @@ student_options = {
     f"{s['name']} ({s.get('school_name') or '학교 미지정'})": s["id"]
     for s in students
 }
-selected_label = st.selectbox("학생 선택", options=list(student_options.keys()))
+
+# preselect가 현재 옵션 안에 존재하면 selectbox의 기본값을 그쪽으로 맞춘다.
+if preselect_student_id is not None:
+    preselect_label = next(
+        (lbl for lbl, sid in student_options.items() if sid == preselect_student_id),
+        None,
+    )
+    if preselect_label:
+        st.session_state["analysis_student_select"] = preselect_label
+
+selected_label = st.selectbox(
+    "학생 선택",
+    options=list(student_options.keys()),
+    key="analysis_student_select",
+)
 selected_student_id = student_options[selected_label]
 
 st.divider()

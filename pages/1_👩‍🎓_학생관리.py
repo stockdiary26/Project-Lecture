@@ -55,6 +55,21 @@ st.divider()
 # ---------------------------------------------------------------------------
 
 st.subheader("학생 조회")
+st.caption("학생 행을 클릭하면 해당 학생의 성적 분석 페이지로 이동합니다.")
+
+
+def _navigate_to_analysis(student_id: int) -> None:
+    """선택된 학생의 성적 분석 페이지로 이동한다.
+
+    같은 학생이 재선택 상태로 남아 있는 경우 리다이렉트 루프를 피하기 위해
+    마지막으로 이동시킨 학생 ID를 기억한다.
+    """
+    if st.session_state.get("last_nav_student_id") == student_id:
+        return
+    st.session_state["last_nav_student_id"] = student_id
+    st.session_state["analysis_preselect_student_id"] = student_id
+    st.switch_page("pages/3_📊_성적분석.py")
+
 
 view_mode = st.radio(
     "보기 방식",
@@ -81,7 +96,16 @@ if view_mode == "반별 보기":
                     for s in students
                 ]
             )
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            event = st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="student_list_by_class",
+            )
+            if event.selection.rows:
+                _navigate_to_analysis(students[event.selection.rows[0]]["id"])
         else:
             st.info("이 반에 등록된 학생이 없습니다.")
     else:
@@ -107,7 +131,16 @@ else:  # 학교별 보기
                     for s in stu_list
                 ]
             )
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            event = st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=f"student_list_school_{school_name}",
+            )
+            if event.selection.rows:
+                _navigate_to_analysis(stu_list[event.selection.rows[0]]["id"])
     else:
         st.info("등록된 학생이 없습니다.")
 
