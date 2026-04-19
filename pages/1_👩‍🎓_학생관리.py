@@ -199,3 +199,64 @@ with tab_csv:
                             st.error("등록할 유효한 학생 데이터가 없습니다.")
             except Exception as e:
                 st.error(f"CSV 파일을 읽는 중 오류가 발생했습니다: {e}")
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# 학생 삭제
+# ---------------------------------------------------------------------------
+
+st.subheader("🗑️ 학생 삭제")
+st.caption(
+    "학생을 삭제하면 해당 학생의 성적·영역별 점수·상담문·메모도 함께 삭제됩니다. "
+    "되돌릴 수 없으니 신중히 진행하세요."
+)
+
+classes = db.get_classes()
+if not classes:
+    st.info("먼저 반을 추가하세요.")
+else:
+    class_options_del = {cls["name"]: cls["id"] for cls in classes}
+    del_class_name = st.selectbox(
+        "반 선택",
+        options=list(class_options_del.keys()),
+        key="del_class_select",
+    )
+    students_del = db.get_students(class_id=class_options_del[del_class_name])
+
+    if not students_del:
+        st.info("이 반에 등록된 학생이 없습니다.")
+    else:
+        student_options_del = {
+            f"{s['name']} ({s.get('school_name') or '-'})": s["id"]
+            for s in students_del
+        }
+        del_student_label = st.selectbox(
+            "삭제할 학생",
+            options=list(student_options_del.keys()),
+            key="del_student_select",
+        )
+        del_student_id = student_options_del[del_student_label]
+
+        confirm_for = st.session_state.get("delete_student_confirm_for")
+
+        if confirm_for == del_student_id:
+            st.warning(
+                f"**'{del_student_label}'** 학생과 관련 데이터가 모두 삭제됩니다. "
+                "정말 삭제하시겠습니까?"
+            )
+            col_yes, col_no = st.columns([1, 1])
+            with col_yes:
+                if st.button("✅ 정말 삭제", type="primary", key="confirm_del_student"):
+                    db.delete_student(del_student_id)
+                    st.session_state["delete_student_confirm_for"] = None
+                    st.success(f"'{del_student_label}' 학생이 삭제되었습니다.")
+                    st.rerun()
+            with col_no:
+                if st.button("취소", key="cancel_del_student"):
+                    st.session_state["delete_student_confirm_for"] = None
+                    st.rerun()
+        else:
+            if st.button("🗑️ 학생 삭제", key="request_del_student"):
+                st.session_state["delete_student_confirm_for"] = del_student_id
+                st.rerun()
