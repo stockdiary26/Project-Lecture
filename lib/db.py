@@ -270,6 +270,24 @@ def get_category_scores_by_student(student_id: int) -> list[dict]:
     return response.data
 
 
+def get_category_scores_for_score_ids(score_ids: list[int]) -> list[dict]:
+    """Return category scores for the given set of score ids in one query.
+
+    Used by the score input editors (per-student and per-exam tabs) to avoid
+    N+1 queries when pre-filling the table.
+    """
+    if not score_ids:
+        return []
+    client = get_client()
+    response = (
+        client.table("category_scores")
+        .select("*, categories(name)")
+        .in_("score_id", score_ids)
+        .execute()
+    )
+    return response.data
+
+
 def upsert_category_score(score_id: int, category_id: int, score: int) -> dict:
     """Insert or update a category score (conflict on score_id + category_id)."""
     client = get_client()
